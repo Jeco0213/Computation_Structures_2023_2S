@@ -41,9 +41,13 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart2;
-DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
+
+uint8_t Rx_data[4];
+
+uint8_t tx_busy =0;
 
 /* USER CODE END PV */
 
@@ -59,25 +63,25 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t Rx_data[10];
-
-void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
-{
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // Toggle PA0
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	//HAL_UART_Receive_IT(&huart2, Rx_data, 4);  // restart the interrupt reception mode
-
-	HAL_UART_Receive_DMA(&huart2, Rx_data, 4);
-}
-
 int _write(int file, char *ptr, int len)
 {
-  HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, 10);
+	while(tx_busy !=0){/* wait */}
+  HAL_UART_Transmit_DMA(&huart2, (uint8_t *)ptr, len);
+  tx_busy=1;
   return len;
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)  // solución del profesor
+{
+	printf("Received: [%s]\r\n",Rx_data);
+	HAL_UART_Receive_IT(&huart2, Rx_data, 1);
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	tx_busy = 0;
+}
+
 
 /* USER CODE END 0 */
 
@@ -113,9 +117,9 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  //HAL_UART_Receive_IT(&huart2, Rx_data, 4);
+  HAL_UART_Receive_IT(&huart2, Rx_data, 1);
 
-  HAL_UART_Receive_DMA(&huart2, Rx_data, 4);
+  //HAL_UART_Receive_DMA(&huart2, Rx_data, 4);
 
   /* USER CODE END 2 */
 
@@ -132,8 +136,8 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	  //HAL_UART_Receive(&huart2, Rx_data,4,1000);
 
-	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-	  HAL_Delay(250);
+	  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+	  //HAL_Delay(250);
 
 
   }
@@ -159,10 +163,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
   RCC_OscInitStruct.PLL.PLLN = 10;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
@@ -182,7 +187,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -233,9 +238,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+  /* DMA1_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
 
 }
 
